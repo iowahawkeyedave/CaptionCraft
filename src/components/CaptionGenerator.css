@@ -1,0 +1,128 @@
+.caption-generator {
+  display: flex;
+  justify-content: center;
+  margin: 30px 0;
+}
+
+.generator-card {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  padding: 40px;
+  text-align: center;
+  color: white;
+  max-width: 500px;
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.generator-card h2 {
+  margin: 0 0 15px 0;
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.generator-card p {
+  margin: 0 0 30px 0;
+  font-size: 1.1rem;
+  opacity: 0.9;
+  line-height: 1.5;
+}
+
+.generate-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 50px;
+  padding: 16px 40px;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 200px;
+  margin: 0 auto;
+}
+
+.generate-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+  transform: translateY(-3px);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+}
+
+.generate-button:disabled {
+  opacity: 0.8;
+  cursor: not-allowed;
+}
+
+.generate-button.loading {
+  background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-info {
+  margin-top: 30px;
+  padding: 25px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.loading-info p {
+  margin: 0 0 20px 0;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.loading-info ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.loading-info li {
+  padding: 8px 0;
+  font-size: 1rem;
+  opacity: 0.9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+@media (max-width: 768px) {
+  .generator-card {
+    padding: 30px 20px;
+    margin: 0 10px;
+  }
+  
+  .generator-card h2 {
+    font-size: 1.5rem;
+  }
+  
+  .generator-card p {
+    font-size: 1rem;
+  }
+  
+  .generate-button {
+    padding: 14px 30px;
+    font-size: 1.1rem;
+    min-width: 180px;
+  }
+}
