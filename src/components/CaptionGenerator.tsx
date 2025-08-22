@@ -34,13 +34,24 @@ const CaptionGenerator: React.FC<CaptionGeneratorProps> = ({
         analysis.mood
       ].filter(Boolean);
 
+      // Generate proper Instagram hashtags - keep them short and readable
       const instagramHashtags = [
         'art', 'digitalart', 'artwork', 'creative',
-        ...analysis.objects.slice(0, 3),
-        ...analysis.colors.slice(0, 2),
-        analysis.style?.toLowerCase(),
-        analysis.mood?.toLowerCase()
-      ].filter(Boolean).map(tag => tag.replace(/\s+/g, ''));
+        ...analysis.objects.slice(0, 3).map(obj => obj.toLowerCase().replace(/\s+/g, '')),
+        ...analysis.colors.slice(0, 2).map(color => color.toLowerCase().replace(/\s+/g, '')),
+        analysis.style?.toLowerCase().replace(/\s+/g, ''),
+        analysis.mood?.toLowerCase().replace(/\s+/g, '')
+      ].filter(Boolean)
+       .map(tag => {
+         // Limit hashtag length to prevent extremely long ones
+         if (tag.length > 20) {
+           // Extract key words from long phrases
+           const words = tag.split(/[\s\-_]+/);
+           return words.slice(0, 2).join('');
+         }
+         return tag;
+       })
+       .filter(tag => tag.length > 2 && tag.length <= 20); // Remove very short or very long tags
 
       const content: GeneratedContent = {
         deviantart: {

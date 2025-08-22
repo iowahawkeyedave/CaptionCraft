@@ -187,6 +187,8 @@ function getOpenAIPrompt(): string {
   "mood": "overall mood or emotion"
 }
 
+IMPORTANT: Keep hashtags SHORT and readable. Each hashtag should be 2-4 words maximum (e.g., #DigitalArt, #Photography, #ArtWork, #Creative). Avoid extremely long compound hashtags.
+
 Make the content engaging and suitable for social media sharing.`;
 }
 
@@ -204,6 +206,8 @@ Respond with ONLY a valid JSON object in this exact format:
   "mood": "overall mood or emotion"
 }
 
+CRITICAL: For hashtags, use SHORT readable hashtags only. Each hashtag should be 2-4 words maximum (like #Art, #Photography, #Digital, #Creative, #Artwork). Never create extremely long compound hashtags.
+
 Important: Respond with ONLY the JSON object, no other text.`;
 }
 
@@ -220,6 +224,8 @@ Respond with ONLY a valid JSON object in this exact format:
   "style": "artistic style description",
   "mood": "overall mood or emotion"
 }
+
+CRITICAL: For hashtags, use SHORT readable hashtags only. Each hashtag should be 2-4 words maximum (like #Art, #Photography, #Digital, #Creative, #Artwork). Never create extremely long compound hashtags.
 
 Important: Respond with ONLY the JSON object, no other text.`;
 }

@@ -29,6 +29,8 @@
   padding: 25px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+  min-width: 0; /* Prevent content overflow from affecting column width */
+  width: 100%; /* Ensure full width usage */
 }
 
 .section-header {
@@ -45,10 +47,14 @@
 
 .deviantart-section {
   border-left: 4px solid #05cc47;
+  flex: 1;
+  min-width: 0;
 }
 
 .instagram-section {
   border-left: 4px solid #e4405f;
+  flex: 1;
+  min-width: 0;
 }
 
 .deviantart-story-section {
@@ -130,6 +136,8 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
+  width: 100%;
 }
 
 .tag,
