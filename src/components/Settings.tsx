@@ -16,6 +16,7 @@ interface LocalSettings {
   lmstudioApiKey: string;
   ollamaUrl: string;
   visionModel: string;
+  storyModel: string;
 }
 
 const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
@@ -25,7 +26,8 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
     lmstudioUrl: 'http://localhost:1234',
     lmstudioApiKey: '',
     ollamaUrl: 'http://localhost:11434',
-    visionModel: 'gpt-4-vision-preview'
+    visionModel: 'gpt-4-vision-preview',
+    storyModel: 'gpt-4o'
   });
 
   const [hasChanges, setHasChanges] = useState(false);
@@ -162,7 +164,8 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
       lmstudioUrl: 'http://localhost:1234',
       lmstudioApiKey: '',
       ollamaUrl: 'http://localhost:11434',
-      visionModel: 'gpt-4-vision-preview'
+      visionModel: 'gpt-4-vision-preview',
+      storyModel: 'gpt-4o'
     };
     setSettings(defaultSettings);
     setHasChanges(true);
@@ -175,7 +178,8 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
       lmstudioUrl: 'REACT_APP_LMSTUDIO_URL',
       lmstudioApiKey: 'REACT_APP_LMSTUDIO_API_KEY',
       ollamaUrl: 'REACT_APP_OLLAMA_URL',
-      visionModel: 'REACT_APP_VISION_MODEL'
+      visionModel: 'REACT_APP_VISION_MODEL',
+      storyModel: 'REACT_APP_STORY_MODEL'
     };
     return mapping[settingKey] || null;
   };
@@ -322,77 +326,109 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
           )}
 
           {settings.provider === 'openai' && (
-            <div className="setting-group">
-              <label htmlFor="visionModel">Vision Model</label>
-              <input
-                type="text"
-                id="visionModel"
-                value={settings.visionModel}
-                onChange={(e) => handleSettingChange('visionModel', e.target.value)}
-                placeholder="gpt-4-vision-preview"
-              />
-              <small>OpenAI vision model (e.g., gpt-4-vision-preview, gpt-4-turbo-vision)</small>
-            </div>
+            <>
+              <div className="setting-group">
+                <label htmlFor="visionModel">Vision Model</label>
+                <input
+                  type="text"
+                  id="visionModel"
+                  value={settings.visionModel}
+                  onChange={(e) => handleSettingChange('visionModel', e.target.value)}
+                  placeholder="gpt-4-vision-preview"
+                />
+                <small>OpenAI vision model for image analysis (e.g., gpt-4-vision-preview, gpt-4o)</small>
+              </div>
+
+              <div className="setting-group">
+                <label htmlFor="storyModel">Story Model</label>
+                <input
+                  type="text"
+                  id="storyModel"
+                  value={settings.storyModel}
+                  onChange={(e) => handleSettingChange('storyModel', e.target.value)}
+                  placeholder="gpt-4o"
+                />
+                <small>OpenAI text model for creative story generation (e.g., gpt-4o, gpt-4-turbo, gpt-3.5-turbo)</small>
+              </div>
+            </>
           )}
 
           {(settings.provider === 'lmstudio' || settings.provider === 'ollama') && (
-            <div className="setting-group">
-              <label htmlFor="visionModel">Vision Model</label>
-              {availableModels.length > 0 ? (
-                <div className="model-selection-group">
-                  <select
-                    id="visionModel"
-                    value={settings.visionModel}
-                    onChange={(e) => handleSettingChange('visionModel', e.target.value)}
-                    disabled={isLoadingModels}
-                  >
-                    {availableModels.map((model) => (
-                      <option key={'id' in model ? model.id : model.name} value={'id' in model ? model.id : model.name}>
-                        {'id' in model ? model.id : model.name}
-                      </option>
-                    ))}
-                  </select>
-                  <button 
-                    type="button" 
-                    className="refresh-models-button"
-                    onClick={loadAvailableModels}
-                    disabled={isLoadingModels || (settings.provider === 'lmstudio' && !settings.lmstudioUrl) || (settings.provider === 'ollama' && !settings.ollamaUrl)}
-                    title="Refresh available models"
-                  >
-                    {isLoadingModels ? '⟳' : '🔄'}
-                  </button>
-                </div>
-              ) : (
+            <>
+              <div className="setting-group">
+                <label htmlFor="visionModel">Vision Model</label>
+                {availableModels.length > 0 ? (
+                  <div className="model-selection-group">
+                    <select
+                      id="visionModel"
+                      value={settings.visionModel}
+                      onChange={(e) => handleSettingChange('visionModel', e.target.value)}
+                      disabled={isLoadingModels}
+                    >
+                      {availableModels.map((model) => (
+                        <option key={'id' in model ? model.id : model.name} value={'id' in model ? model.id : model.name}>
+                          {'id' in model ? model.id : model.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button 
+                      type="button" 
+                      className="refresh-models-button"
+                      onClick={loadAvailableModels}
+                      disabled={isLoadingModels || (settings.provider === 'lmstudio' && !settings.lmstudioUrl) || (settings.provider === 'ollama' && !settings.ollamaUrl)}
+                      title="Refresh available models"
+                    >
+                      {isLoadingModels ? '⟳' : '🔄'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="model-input-group">
+                    <input
+                      type="text"
+                      id="visionModel"
+                      value={settings.visionModel}
+                      onChange={(e) => handleSettingChange('visionModel', e.target.value)}
+                      placeholder={settings.provider === 'lmstudio' ? 'google/gemma-3-4b' : 'llava:latest'}
+                    />
+                    <button 
+                      type="button" 
+                      className="refresh-models-button"
+                      onClick={loadAvailableModels}
+                      disabled={isLoadingModels || (settings.provider === 'lmstudio' && !settings.lmstudioUrl) || (settings.provider === 'ollama' && !settings.ollamaUrl)}
+                      title="Try to detect models automatically"
+                    >
+                      {isLoadingModels ? '⟳' : '🔍'}
+                    </button>
+                  </div>
+                )}
+                <small>
+                  {isLoadingModels && 'Loading available vision models...'}
+                  {!isLoadingModels && !modelError && connectionStatus === 'connected' && availableModels.length > 0 && 
+                    `Found ${availableModels.length} vision model${availableModels.length !== 1 ? 's' : ''}`}
+                  {modelError && <span className="status-error">{modelError}</span>}
+                  {!modelError && !isLoadingModels && availableModels.length === 0 && connectionStatus === 'connected' && 
+                    'No vision models detected - you can manually enter the model name above'}
+                  {!modelError && !isLoadingModels && availableModels.length === 0 && connectionStatus === 'disconnected' && 
+                    `Connection failed - check ${settings.provider === 'lmstudio' ? 'CORS settings' : 'CORS flag'} or manually enter model name`}
+                </small>
+              </div>
+
+              <div className="setting-group">
+                <label htmlFor="storyModel">Story Model</label>
                 <div className="model-input-group">
                   <input
                     type="text"
-                    id="visionModel"
-                    value={settings.visionModel}
-                    onChange={(e) => handleSettingChange('visionModel', e.target.value)}
-                    placeholder={settings.provider === 'lmstudio' ? 'google/gemma-3-4b' : 'llava:latest'}
+                    id="storyModel"
+                    value={settings.storyModel}
+                    onChange={(e) => handleSettingChange('storyModel', e.target.value)}
+                    placeholder={settings.provider === 'lmstudio' ? 'llama-3.1-8b' : 'llama3.1:latest'}
                   />
-                  <button 
-                    type="button" 
-                    className="refresh-models-button"
-                    onClick={loadAvailableModels}
-                    disabled={isLoadingModels || (settings.provider === 'lmstudio' && !settings.lmstudioUrl) || (settings.provider === 'ollama' && !settings.ollamaUrl)}
-                    title="Try to detect models automatically"
-                  >
-                    {isLoadingModels ? '⟳' : '🔍'}
-                  </button>
                 </div>
-              )}
-              <small>
-                {isLoadingModels && 'Loading available models...'}
-                {!isLoadingModels && !modelError && connectionStatus === 'connected' && availableModels.length > 0 && 
-                  `Found ${availableModels.length} vision model${availableModels.length !== 1 ? 's' : ''}`}
-                {modelError && <span className="status-error">{modelError}</span>}
-                {!modelError && !isLoadingModels && availableModels.length === 0 && connectionStatus === 'connected' && 
-                  'No vision models detected - you can manually enter the model name above'}
-                {!modelError && !isLoadingModels && availableModels.length === 0 && connectionStatus === 'disconnected' && 
-                  `Connection failed - check ${settings.provider === 'lmstudio' ? 'CORS settings' : 'CORS flag'} or manually enter model name`}
-              </small>
-            </div>
+                <small>
+                  Text model for creative story generation (can be any model available on your {settings.provider === 'lmstudio' ? 'LM Studio' : 'Ollama'} server)
+                </small>
+              </div>
+            </>
           )}
 
           <div className="setup-guide">

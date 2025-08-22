@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import './CaptionGenerator.css';
 import { GeneratedContent } from '../App';
 import { analyzeImage } from '../services/aiService';
@@ -21,13 +21,7 @@ const CaptionGenerator: React.FC<CaptionGeneratorProps> = ({
   onNSFWChange
 }) => {
 
-  useEffect(() => {
-    if (isLoading && image) {
-      generateContent();
-    }
-  }, [isLoading, image]);
-
-  const generateContent = async () => {
+  const generateContent = useCallback(async () => {
     try {
       const analysis = await analyzeImage(image, isNSFW);
       
@@ -75,19 +69,25 @@ const CaptionGenerator: React.FC<CaptionGeneratorProps> = ({
       
       const fallbackContent: GeneratedContent = {
         deviantart: {
-          title: "Artistic Expression",
-          story: "In the realm where imagination meets reality, this captivating piece stands as a testament to the boundless creativity of the human spirit. The artist has woven together elements of light, shadow, and emotion to create something truly extraordinary. Each stroke, each pixel, each carefully considered detail speaks to a deeper narrative that unfolds before the viewer's eyes.\n\nThe composition draws you in with its masterful use of visual storytelling. There's a sense of movement, of life breathing within the static frame, as if the very essence of the subject has been captured and immortalized. The interplay of colors creates a symphony of visual harmony, each hue carefully chosen to evoke specific emotions and memories.\n\nAs you study the piece more closely, layers of meaning begin to emerge. The artist has embedded subtle symbols and metaphors throughout the work, creating a rich tapestry of interpretation. Perhaps there's a story of transformation here, or a meditation on the passage of time, or simply a celebration of beauty in its purest form.\n\nThe technical execution is flawless, demonstrating years of dedication to the craft. Every element has been considered, from the overall composition to the finest details that might only be noticed upon closer inspection. This is not merely an image; it's a portal into another world, a glimpse into the artist's soul, and an invitation for viewers to embark on their own journey of discovery.\n\nIn a world often filled with chaos and uncertainty, works like this remind us of the power of art to inspire, to heal, and to connect us to something greater than ourselves. It stands as a beacon of creativity, encouraging others to pick up their tools and create something meaningful of their own.",
-          tags: ["art", "creative", "digital", "artistic", "expression"]
+          title: "Visual Story Awaiting Discovery",
+          story: "This image holds a story waiting to be told. While our AI analysis encountered an issue, the visual elements present in this piece speak volumes about the creative vision behind it. The composition, lighting, and subject matter work together to create a compelling narrative that invites viewers to explore and interpret.\n\nEvery image contains layers of meaning - from the technical choices made in its creation to the emotional resonance it evokes in those who view it. The interplay of visual elements creates a unique atmosphere that can transport viewers to different worlds, evoke memories, or inspire new ideas.\n\nThe artistic choices evident in this piece - whether in color palette, composition, lighting, or subject matter - demonstrate the creator's vision and skill. These elements combine to create something that goes beyond mere documentation, becoming a form of visual storytelling that speaks to universal human experiences.\n\nArt has the power to communicate across barriers of language and culture, touching something fundamental in our shared human experience. This piece, like all meaningful visual art, serves as a bridge between the creator's vision and the viewer's imagination, creating a space for personal interpretation and emotional connection.\n\nWhile we couldn't generate a specific analysis this time, the image itself remains a testament to the power of visual communication and the endless possibilities that emerge when creativity meets technical skill. Each viewing may reveal new details and inspire different interpretations, making it a living piece of art that continues to engage and inspire.",
+          tags: ["art", "creative", "visual", "story", "inspiration"]
         },
         instagram: {
-          caption: "Sharing some creative inspiration ✨ What do you see in this image?",
-          hashtags: ["art", "creative", "inspiration", "artwork", "digital"]
+          caption: "Every image tells a story ✨ What narrative do you see here? 🎨",
+          hashtags: ["art", "visual", "story", "creative", "inspiration"]
         }
       };
       
       onContentGenerated(fallbackContent);
     }
-  };
+  }, [image, isNSFW, onContentGenerated]);
+
+  useEffect(() => {
+    if (isLoading && image) {
+      generateContent();
+    }
+  }, [isLoading, image, isNSFW, generateContent]);
 
   return (
     <div className="caption-generator">
