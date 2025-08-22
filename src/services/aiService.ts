@@ -183,7 +183,7 @@ function getOpenAIPrompt(isNSFW: boolean = false): string {
   return `Analyze this image and provide a JSON response with the following structure:
 {
   "title": "A compelling title for DeviantArt (max 100 chars)",
-  "story": "A detailed story/description for DeviantArt (150-300 words)",
+  "story": "An extremely creative and detailed story/description for DeviantArt (800-1000 words). Create an immersive narrative that brings the image to life with rich descriptions, character development, world-building, emotional depth, and creative storytelling. Include vivid sensory details, dialogue if appropriate, and paint a complete picture that captivates readers.",
   "instagramCaption": "An engaging Instagram caption (max 150 chars)",
   "objects": ["list", "of", "main", "objects", "or", "subjects"],
   "colors": ["dominant", "color", "palette"],
@@ -206,7 +206,7 @@ function getLMStudioPrompt(isNSFW: boolean = false): string {
 Respond with ONLY a valid JSON object in this exact format:
 {
   "title": "A compelling title for DeviantArt (max 100 characters)",
-  "story": "A detailed story/description for DeviantArt (150-300 words that tells a story about the image)",
+  "story": "An extremely creative and detailed story/description for DeviantArt (800-1000 words). Create an immersive narrative that brings the image to life with rich descriptions, character development, world-building, emotional depth, and creative storytelling. Include vivid sensory details, dialogue if appropriate, and paint a complete picture that captivates readers.",
   "instagramCaption": "An engaging Instagram caption (max 150 characters with emojis)",
   "objects": ["list", "of", "main", "objects", "or", "subjects", "in", "image"],
   "colors": ["dominant", "color", "names"],
@@ -229,7 +229,7 @@ function getOllamaPrompt(isNSFW: boolean = false): string {
 Respond with ONLY a valid JSON object in this exact format:
 {
   "title": "A compelling title for DeviantArt (max 100 characters)",
-  "story": "A detailed story/description for DeviantArt (150-300 words that tells a story about the image)",
+  "story": "An extremely creative and detailed story/description for DeviantArt (800-1000 words). Create an immersive narrative that brings the image to life with rich descriptions, character development, world-building, emotional depth, and creative storytelling. Include vivid sensory details, dialogue if appropriate, and paint a complete picture that captivates readers.",
   "instagramCaption": "An engaging Instagram caption (max 150 characters with emojis)",
   "objects": ["list", "of", "main", "objects", "or", "subjects", "in", "image"],
   "colors": ["dominant", "color", "names"],
@@ -262,7 +262,7 @@ function getOpenAIRequestBody(imageDataUrl: string, prompt: string, model: strin
         ]
       }
     ],
-    max_tokens: 1000
+    max_tokens: 2000
   };
 }
 
@@ -287,7 +287,7 @@ function getLMStudioRequestBody(imageDataUrl: string, prompt: string, model: str
         ]
       }
     ],
-    max_tokens: 1000,
+    max_tokens: 2000,
     temperature: 0.7
   };
 }
@@ -304,7 +304,7 @@ function getOllamaRequestBody(imageDataUrl: string, prompt: string, model: strin
     stream: false,
     options: {
       temperature: 0.7,
-      num_predict: 1000
+      num_predict: 2000
     }
   };
 }

@@ -76,7 +76,7 @@ const CaptionGenerator: React.FC<CaptionGeneratorProps> = ({
       const fallbackContent: GeneratedContent = {
         deviantart: {
           title: "Artistic Expression",
-          story: "A captivating piece that showcases creativity and artistic vision. This work demonstrates the artist's unique perspective and technical skill, inviting viewers to explore the depths of imagination and emotion captured within the frame.",
+          story: "In the realm where imagination meets reality, this captivating piece stands as a testament to the boundless creativity of the human spirit. The artist has woven together elements of light, shadow, and emotion to create something truly extraordinary. Each stroke, each pixel, each carefully considered detail speaks to a deeper narrative that unfolds before the viewer's eyes.\n\nThe composition draws you in with its masterful use of visual storytelling. There's a sense of movement, of life breathing within the static frame, as if the very essence of the subject has been captured and immortalized. The interplay of colors creates a symphony of visual harmony, each hue carefully chosen to evoke specific emotions and memories.\n\nAs you study the piece more closely, layers of meaning begin to emerge. The artist has embedded subtle symbols and metaphors throughout the work, creating a rich tapestry of interpretation. Perhaps there's a story of transformation here, or a meditation on the passage of time, or simply a celebration of beauty in its purest form.\n\nThe technical execution is flawless, demonstrating years of dedication to the craft. Every element has been considered, from the overall composition to the finest details that might only be noticed upon closer inspection. This is not merely an image; it's a portal into another world, a glimpse into the artist's soul, and an invitation for viewers to embark on their own journey of discovery.\n\nIn a world often filled with chaos and uncertainty, works like this remind us of the power of art to inspire, to heal, and to connect us to something greater than ourselves. It stands as a beacon of creativity, encouraging others to pick up their tools and create something meaningful of their own.",
           tags: ["art", "creative", "digital", "artistic", "expression"]
         },
         instagram: {
@@ -130,7 +130,7 @@ const CaptionGenerator: React.FC<CaptionGeneratorProps> = ({
           <div className="loading-info">
             <p>Our AI is analyzing your image to create:</p>
             <ul>
-              <li>📝 DeviantArt title and story</li>
+              <li>📝 DeviantArt title and immersive story (800-1000 words)</li>
               <li>🏷️ Relevant tags</li>
               <li>📱 Instagram caption</li>
               <li>📍 Trending hashtags</li>
