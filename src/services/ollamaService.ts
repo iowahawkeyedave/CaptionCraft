@@ -37,7 +37,7 @@ export async function fetchOllamaModels(serverUrl: string): Promise<OllamaModel[
       throw new Error('Invalid response format from Ollama');
     }
 
-    // Filter for vision models - be more specific about which models actually support vision
+    // Filter for vision models
     const visionModels = data.models.filter(model => {
       const modelName = model.name.toLowerCase();
       return modelName.includes('llava') || 
@@ -45,12 +45,11 @@ export async function fetchOllamaModels(serverUrl: string): Promise<OllamaModel[
              modelName.includes('multimodal') ||
              modelName.includes('bakllava') ||
              modelName.includes('moondream') ||
+             modelName.includes('gemma') ||  // Gemma 3 models have vision capabilities
              modelName.includes('pixtral') ||
              modelName.includes('qwen2-vl') ||
              modelName.includes('internvl') ||
-             modelName.includes('cogvlm') ||
-             // Only include specific Gemma models that have vision capabilities
-             (modelName.includes('gemma') && (modelName.includes('paligemma') || modelName.includes('vision')));
+             modelName.includes('cogvlm');
     });
 
     console.log('All available Ollama models:', data.models.map(m => m.name));
@@ -159,6 +158,22 @@ export function getDefaultOllamaVisionModels(): OllamaModel[] {
       size: 0,
       digest: '',
       details: { format: '', family: 'llava', parameter_size: '8B', quantization_level: 'Q4_0' },
+      modified_at: ''
+    },
+    { 
+      name: 'gemma3:4b', 
+      model: 'gemma3:4b',
+      size: 0,
+      digest: '',
+      details: { format: '', family: 'gemma', parameter_size: '4B', quantization_level: 'Q4_0' },
+      modified_at: ''
+    },
+    { 
+      name: 'gemma3:12b', 
+      model: 'gemma3:12b',
+      size: 0,
+      digest: '',
+      details: { format: '', family: 'gemma', parameter_size: '12B', quantization_level: 'Q4_0' },
       modified_at: ''
     },
     { 

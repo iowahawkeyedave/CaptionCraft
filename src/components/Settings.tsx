@@ -422,11 +422,13 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                 <h4>Ollama Setup:</h4>
                 <ol>
                   <li>Download and install <a href="https://ollama.ai/" target="_blank" rel="noopener noreferrer">Ollama</a></li>
-                  <li>Install a vision model (recommended: llava, bakllava, or moondream):
+                  <li>Install a vision model (recommended options):
                     <ul>
                       <li><code>ollama pull llava:latest</code> (most popular)</li>
+                      <li><code>ollama pull gemma3:4b</code> (fast, efficient)</li>
+                      <li><code>ollama pull gemma3:12b</code> (higher quality)</li>
                       <li><code>ollama pull bakllava:latest</code> (good for detailed analysis)</li>
-                      <li><code>ollama pull moondream:latest</code> (smaller, faster)</li>
+                      <li><code>ollama pull moondream:latest</code> (smallest, fastest)</li>
                     </ul>
                   </li>
                   <li>Start Ollama with CORS enabled:
