@@ -80,7 +80,7 @@ function getAIConfig(): AIConfig {
     case 'ollama':
       return {
         provider: 'ollama',
-        endpoint: `${ollamaUrl}/v1/chat/completions`,
+        endpoint: `${ollamaUrl}/api/generate`,
         apiKey: undefined,
         model: visionModel
       };
@@ -149,7 +149,13 @@ export async function analyzeImage(imageDataUrl: string): Promise<ImageAnalysis>
     }
 
     const data = await response.json();
-    const content = data.choices[0]?.message?.content;
+    let content;
+    
+    if (config.provider === 'ollama') {
+      content = data.response;
+    } else {
+      content = data.choices[0]?.message?.content;
+    }
     
     if (!content) {
       throw new Error('No content in API response');
@@ -269,29 +275,19 @@ function getLMStudioRequestBody(imageDataUrl: string, prompt: string, model: str
 }
 
 function getOllamaRequestBody(imageDataUrl: string, prompt: string, model: string) {
-  // Ollama uses the same OpenAI-compatible format
+  // Ollama uses its own API format with base64 images
+  // Convert data URL to base64 (remove the data:image/...;base64, prefix)
+  const base64Image = imageDataUrl.split(',')[1];
+  
   return {
     model,
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: prompt
-          },
-          {
-            type: 'image_url',
-            image_url: {
-              url: imageDataUrl
-            }
-          }
-        ]
-      }
-    ],
-    max_tokens: 1000,
-    temperature: 0.7,
-    stream: false
+    prompt,
+    images: [base64Image],
+    stream: false,
+    options: {
+      temperature: 0.7,
+      num_predict: 1000
+    }
   };
 }
 
