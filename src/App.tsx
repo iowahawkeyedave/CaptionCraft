@@ -22,6 +22,7 @@ function App() {
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [isNSFW, setIsNSFW] = useState(false);
 
   const handleImageUpload = useCallback((imageDataUrl: string) => {
     setUploadedImage(imageDataUrl);
@@ -69,6 +70,8 @@ function App() {
               onContentGenerated={handleContentGenerated}
               isLoading={isLoading}
               onGenerateClick={handleGenerateContent}
+              isNSFW={isNSFW}
+              onNSFWChange={setIsNSFW}
             />
           </div>
         )}

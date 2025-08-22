@@ -94,7 +94,7 @@ function getAIConfig(): AIConfig {
   }
 }
 
-export async function analyzeImage(imageDataUrl: string): Promise<ImageAnalysis> {
+export async function analyzeImage(imageDataUrl: string, isNSFW: boolean = false): Promise<ImageAnalysis> {
   const config = getAIConfig();
   console.log('analyzeImage called with config:', config);
   
@@ -122,15 +122,15 @@ export async function analyzeImage(imageDataUrl: string): Promise<ImageAnalysis>
 
     switch (config.provider) {
       case 'lmstudio':
-        prompt = getLMStudioPrompt();
+        prompt = getLMStudioPrompt(isNSFW);
         body = getLMStudioRequestBody(imageDataUrl, prompt, config.model);
         break;
       case 'ollama':
-        prompt = getOllamaPrompt();
+        prompt = getOllamaPrompt(isNSFW);
         body = getOllamaRequestBody(imageDataUrl, prompt, config.model);
         break;
       default:
-        prompt = getOpenAIPrompt();
+        prompt = getOpenAIPrompt(isNSFW);
         body = getOpenAIRequestBody(imageDataUrl, prompt, config.model);
     }
 
@@ -175,7 +175,11 @@ export async function analyzeImage(imageDataUrl: string): Promise<ImageAnalysis>
   }
 }
 
-function getOpenAIPrompt(): string {
+function getOpenAIPrompt(isNSFW: boolean = false): string {
+  const nsfwInstructions = isNSFW 
+    ? `\n\nNSFW/MATURE CONTENT: You may include mature themes, adult content, and sensual elements in the DeviantArt story. Keep the Instagram caption appropriate for general audiences.`
+    : `\n\nKeep all content appropriate for general audiences.`;
+
   return `Analyze this image and provide a JSON response with the following structure:
 {
   "title": "A compelling title for DeviantArt (max 100 chars)",
@@ -189,10 +193,14 @@ function getOpenAIPrompt(): string {
 
 IMPORTANT: Keep hashtags SHORT and readable. Each hashtag should be 2-4 words maximum (e.g., #DigitalArt, #Photography, #ArtWork, #Creative). Avoid extremely long compound hashtags.
 
-Make the content engaging and suitable for social media sharing.`;
+Make the content engaging and suitable for social media sharing.${nsfwInstructions}`;
 }
 
-function getLMStudioPrompt(): string {
+function getLMStudioPrompt(isNSFW: boolean = false): string {
+  const nsfwInstructions = isNSFW 
+    ? `\n\nNSFW/MATURE CONTENT: You may include mature themes, adult content, and sensual elements in the DeviantArt story. Keep the Instagram caption appropriate for general audiences.`
+    : `\n\nKeep all content appropriate for general audiences.`;
+
   return `You are an expert art and social media content creator. Analyze this image and create compelling content for DeviantArt and Instagram.
 
 Respond with ONLY a valid JSON object in this exact format:
@@ -206,12 +214,16 @@ Respond with ONLY a valid JSON object in this exact format:
   "mood": "overall mood or emotion"
 }
 
-CRITICAL: For hashtags, use SHORT readable hashtags only. Each hashtag should be 2-4 words maximum (like #Art, #Photography, #Digital, #Creative, #Artwork). Never create extremely long compound hashtags.
+CRITICAL: For hashtags, use SHORT readable hashtags only. Each hashtag should be 2-4 words maximum (like #Art, #Photography, #Digital, #Creative, #Artwork). Never create extremely long compound hashtags.${nsfwInstructions}
 
 Important: Respond with ONLY the JSON object, no other text.`;
 }
 
-function getOllamaPrompt(): string {
+function getOllamaPrompt(isNSFW: boolean = false): string {
+  const nsfwInstructions = isNSFW 
+    ? `\n\nNSFW/MATURE CONTENT: You may include mature themes, adult content, and sensual elements in the DeviantArt story. Keep the Instagram caption appropriate for general audiences.`
+    : `\n\nKeep all content appropriate for general audiences.`;
+
   return `You are an expert art and social media content creator. Analyze this image and create compelling content for DeviantArt and Instagram.
 
 Respond with ONLY a valid JSON object in this exact format:
@@ -225,7 +237,7 @@ Respond with ONLY a valid JSON object in this exact format:
   "mood": "overall mood or emotion"
 }
 
-CRITICAL: For hashtags, use SHORT readable hashtags only. Each hashtag should be 2-4 words maximum (like #Art, #Photography, #Digital, #Creative, #Artwork). Never create extremely long compound hashtags.
+CRITICAL: For hashtags, use SHORT readable hashtags only. Each hashtag should be 2-4 words maximum (like #Art, #Photography, #Digital, #Creative, #Artwork). Never create extremely long compound hashtags.${nsfwInstructions}
 
 Important: Respond with ONLY the JSON object, no other text.`;
 }

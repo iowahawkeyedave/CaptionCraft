@@ -29,6 +29,69 @@
   line-height: 1.5;
 }
 
+.nsfw-option {
+  margin: 20px 0 30px 0;
+  text-align: left;
+}
+
+.nsfw-checkbox {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: 500;
+  gap: 12px;
+  margin-bottom: 8px;
+  user-select: none;
+}
+
+.nsfw-checkbox input[type="checkbox"] {
+  display: none;
+}
+
+.checkmark {
+  width: 20px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.nsfw-checkbox input[type="checkbox"]:checked + .checkmark {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: #667eea;
+}
+
+.nsfw-checkbox input[type="checkbox"]:checked + .checkmark::after {
+  content: "✓";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.nsfw-checkbox:hover .checkmark {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.nsfw-checkbox input[type="checkbox"]:disabled + .checkmark {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.nsfw-description {
+  font-size: 0.9rem !important;
+  opacity: 0.7 !important;
+  margin: 0 0 0 32px !important;
+  color: #ffa500;
+}
+
 .generate-button {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border: none;

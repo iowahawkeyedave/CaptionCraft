@@ -8,13 +8,17 @@ interface CaptionGeneratorProps {
   onContentGenerated: (content: GeneratedContent) => void;
   isLoading: boolean;
   onGenerateClick: () => void;
+  isNSFW: boolean;
+  onNSFWChange: (isNSFW: boolean) => void;
 }
 
 const CaptionGenerator: React.FC<CaptionGeneratorProps> = ({
   image,
   onContentGenerated,
   isLoading,
-  onGenerateClick
+  onGenerateClick,
+  isNSFW,
+  onNSFWChange
 }) => {
 
   useEffect(() => {
@@ -25,7 +29,7 @@ const CaptionGenerator: React.FC<CaptionGeneratorProps> = ({
 
   const generateContent = async () => {
     try {
-      const analysis = await analyzeImage(image);
+      const analysis = await analyzeImage(image, isNSFW);
       
       const deviantartTags = [
         ...analysis.objects.slice(0, 5),
@@ -90,6 +94,20 @@ const CaptionGenerator: React.FC<CaptionGeneratorProps> = ({
       <div className="generator-card">
         <h2>Generate Captions & Content</h2>
         <p>Click the button below to analyze your image and generate content for DeviantArt and Instagram</p>
+        
+        <div className="nsfw-option">
+          <label className="nsfw-checkbox">
+            <input
+              type="checkbox"
+              checked={isNSFW}
+              onChange={(e) => onNSFWChange(e.target.checked)}
+              disabled={isLoading}
+            />
+            <span className="checkmark"></span>
+            Generate NSFW/Mature Content
+          </label>
+          <p className="nsfw-description">Enable for mature themes in DeviantArt stories (18+)</p>
+        </div>
         
         <button 
           className={`generate-button ${isLoading ? 'loading' : ''}`}
