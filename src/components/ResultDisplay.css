@@ -12,6 +12,10 @@
   font-weight: 700;
 }
 
+.full-width-section {
+  margin-bottom: 30px;
+}
+
 .content-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -45,6 +49,11 @@
 
 .instagram-section {
   border-left: 4px solid #e4405f;
+}
+
+.deviantart-story-section {
+  border-left: 4px solid #05cc47;
+  border-top: 2px solid rgba(5, 204, 71, 0.3);
 }
 
 .content-item {

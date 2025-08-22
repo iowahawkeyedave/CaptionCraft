@@ -40,10 +40,34 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ content }) => {
     <div className="result-display">
       <h2>Generated Content</h2>
       
+      {/* DeviantArt Story - Full Width */}
+      <div className="full-width-section">
+        <div className="content-section deviantart-story-section">
+          <div className="section-header">
+            <h3>🎨 DeviantArt Story</h3>
+          </div>
+          <div className="content-item">
+            <div className="item-header">
+              <h4>Story/Description</h4>
+              <button
+                className={`copy-button ${copiedItem === 'da-story' ? 'copied' : ''}`}
+                onClick={() => copyToClipboard(content.deviantart.story, 'da-story')}
+              >
+                {copiedItem === 'da-story' ? '✓' : '📋'}
+              </button>
+            </div>
+            <div className="item-content story-content">
+              {content.deviantart.story}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Two-column layout for other content */}
       <div className="content-grid">
         <div className="content-section deviantart-section">
           <div className="section-header">
-            <h3>🎨 DeviantArt Content</h3>
+            <h3>🎨 DeviantArt Title & Tags</h3>
           </div>
           
           <div className="content-item">
@@ -58,21 +82,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ content }) => {
             </div>
             <div className="item-content title-content">
               {content.deviantart.title}
-            </div>
-          </div>
-
-          <div className="content-item">
-            <div className="item-header">
-              <h4>Story/Description</h4>
-              <button
-                className={`copy-button ${copiedItem === 'da-story' ? 'copied' : ''}`}
-                onClick={() => copyToClipboard(content.deviantart.story, 'da-story')}
-              >
-                {copiedItem === 'da-story' ? '✓' : '📋'}
-              </button>
-            </div>
-            <div className="item-content story-content">
-              {content.deviantart.story}
             </div>
           </div>
 
