@@ -8,7 +8,7 @@ export interface ImageAnalysis {
   mood: string;
 }
 
-export type AIProvider = 'openai' | 'lmstudio' | 'mock';
+export type AIProvider = 'openai' | 'lmstudio' | 'ollama' | 'mock';
 
 interface AIConfig {
   provider: AIProvider;
@@ -22,6 +22,7 @@ function getAIConfig(): AIConfig {
   let openaiApiKey = '';
   let lmstudioUrl = 'http://localhost:1234';
   let lmstudioApiKey = '';
+  let ollamaUrl = 'http://localhost:11434';
   let visionModel = 'gpt-4-vision-preview';
 
   try {
@@ -36,6 +37,7 @@ function getAIConfig(): AIConfig {
       openaiApiKey = settings.openaiApiKey || '';
       lmstudioUrl = settings.lmstudioUrl || 'http://localhost:1234';
       lmstudioApiKey = settings.lmstudioApiKey || '';
+      ollamaUrl = settings.ollamaUrl || 'http://localhost:11434';
       visionModel = settings.visionModel || 'gpt-4-vision-preview';
     } else {
       console.log('No saved settings found, using environment variables');
@@ -43,6 +45,7 @@ function getAIConfig(): AIConfig {
       openaiApiKey = process.env.REACT_APP_OPENAI_API_KEY || '';
       lmstudioUrl = process.env.REACT_APP_LMSTUDIO_URL || 'http://localhost:1234';
       lmstudioApiKey = process.env.REACT_APP_LMSTUDIO_API_KEY || '';
+      ollamaUrl = process.env.REACT_APP_OLLAMA_URL || 'http://localhost:11434';
       visionModel = process.env.REACT_APP_VISION_MODEL || 'gpt-4-vision-preview';
     }
   } catch (error) {
@@ -51,10 +54,11 @@ function getAIConfig(): AIConfig {
     openaiApiKey = process.env.REACT_APP_OPENAI_API_KEY || '';
     lmstudioUrl = process.env.REACT_APP_LMSTUDIO_URL || 'http://localhost:1234';
     lmstudioApiKey = process.env.REACT_APP_LMSTUDIO_API_KEY || '';
+    ollamaUrl = process.env.REACT_APP_OLLAMA_URL || 'http://localhost:11434';
     visionModel = process.env.REACT_APP_VISION_MODEL || 'gpt-4-vision-preview';
   }
 
-  console.log('Final AI config:', { provider, lmstudioUrl, visionModel });
+  console.log('Final AI config:', { provider, lmstudioUrl, ollamaUrl, visionModel });
   
   switch (provider) {
     case 'openai':
@@ -70,6 +74,14 @@ function getAIConfig(): AIConfig {
         provider: 'lmstudio',
         endpoint: `${lmstudioUrl}/v1/chat/completions`,
         apiKey: lmstudioApiKey || undefined,
+        model: visionModel
+      };
+    
+    case 'ollama':
+      return {
+        provider: 'ollama',
+        endpoint: `${ollamaUrl}/v1/chat/completions`,
+        apiKey: undefined,
         model: visionModel
       };
     
@@ -105,13 +117,22 @@ export async function analyzeImage(imageDataUrl: string): Promise<ImageAnalysis>
       headers['Authorization'] = `Bearer ${config.apiKey}`;
     }
 
-    const prompt = config.provider === 'lmstudio' 
-      ? getLMStudioPrompt()
-      : getOpenAIPrompt();
+    let prompt: string;
+    let body: any;
 
-    const body = config.provider === 'lmstudio'
-      ? getLMStudioRequestBody(imageDataUrl, prompt, config.model)
-      : getOpenAIRequestBody(imageDataUrl, prompt, config.model);
+    switch (config.provider) {
+      case 'lmstudio':
+        prompt = getLMStudioPrompt();
+        body = getLMStudioRequestBody(imageDataUrl, prompt, config.model);
+        break;
+      case 'ollama':
+        prompt = getOllamaPrompt();
+        body = getOllamaRequestBody(imageDataUrl, prompt, config.model);
+        break;
+      default:
+        prompt = getOpenAIPrompt();
+        body = getOpenAIRequestBody(imageDataUrl, prompt, config.model);
+    }
 
     console.log('Making request to:', config.endpoint);
     console.log('Request headers:', headers);
@@ -180,6 +201,23 @@ Respond with ONLY a valid JSON object in this exact format:
 Important: Respond with ONLY the JSON object, no other text.`;
 }
 
+function getOllamaPrompt(): string {
+  return `You are an expert art and social media content creator. Analyze this image and create compelling content for DeviantArt and Instagram.
+
+Respond with ONLY a valid JSON object in this exact format:
+{
+  "title": "A compelling title for DeviantArt (max 100 characters)",
+  "story": "A detailed story/description for DeviantArt (150-300 words that tells a story about the image)",
+  "instagramCaption": "An engaging Instagram caption (max 150 characters with emojis)",
+  "objects": ["list", "of", "main", "objects", "or", "subjects", "in", "image"],
+  "colors": ["dominant", "color", "names"],
+  "style": "artistic style description",
+  "mood": "overall mood or emotion"
+}
+
+Important: Respond with ONLY the JSON object, no other text.`;
+}
+
 function getOpenAIRequestBody(imageDataUrl: string, prompt: string, model: string) {
   return {
     model,
@@ -227,6 +265,33 @@ function getLMStudioRequestBody(imageDataUrl: string, prompt: string, model: str
     ],
     max_tokens: 1000,
     temperature: 0.7
+  };
+}
+
+function getOllamaRequestBody(imageDataUrl: string, prompt: string, model: string) {
+  // Ollama uses the same OpenAI-compatible format
+  return {
+    model,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: prompt
+          },
+          {
+            type: 'image_url',
+            image_url: {
+              url: imageDataUrl
+            }
+          }
+        ]
+      }
+    ],
+    max_tokens: 1000,
+    temperature: 0.7,
+    stream: false
   };
 }
 
