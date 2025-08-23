@@ -1,3 +1,5 @@
+import { generateCaptionWithGemini } from './geminiService';
+
 export interface ImageAnalysis {
   title: string;
   story: string;
@@ -8,42 +10,28 @@ export interface ImageAnalysis {
   mood: string;
 }
 
-export type AIProvider = 'openai' | 'lmstudio' | 'ollama' | 'mock';
+export type AIProvider = 'openai' | 'lmstudio' | 'ollama' | 'gemini' | 'mock';
 
 function sanitizeJsonString(jsonString: string): string {
   if (!jsonString) return '{}';
   
-  // Replace common problematic control characters that aren't properly escaped
-  let sanitized = jsonString
-    // Replace literal newlines with escaped newlines (but preserve already escaped ones)
-    .replace(/\\\n/g, '___ESCAPED_NEWLINE___')  // Temporarily replace escaped newlines
-    .replace(/\n/g, '\\n')                      // Replace unescaped newlines
-    .replace(/___ESCAPED_NEWLINE___/g, '\\n')   // Restore escaped newlines
-    
-    // Same approach for other control characters
-    .replace(/\\\r/g, '___ESCAPED_CR___')
-    .replace(/\r/g, '\\r')
-    .replace(/___ESCAPED_CR___/g, '\\r')
-    
-    .replace(/\\\t/g, '___ESCAPED_TAB___')
-    .replace(/\t/g, '\\t')
-    .replace(/___ESCAPED_TAB___/g, '\\t')
-    
-    .replace(/\\\b/g, '___ESCAPED_BS___')
-    .replace(/\b/g, '\\b')
-    .replace(/___ESCAPED_BS___/g, '\\b')
-    
-    .replace(/\\\f/g, '___ESCAPED_FF___')
-    .replace(/\f/g, '\\f')
-    .replace(/___ESCAPED_FF___/g, '\\f')
-    
-    // Remove other problematic control characters (ASCII 0-31 except allowed ones)
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+  let sanitized = jsonString.trim();
   
-  // Try to fix common JSON formatting issues
-  // Remove any trailing commas before closing braces/brackets
+  // Remove code block markers if present
+  sanitized = sanitized.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
+  
+  // Fix common JSON issues
+  // Remove trailing commas before closing braces/brackets
   sanitized = sanitized.replace(/,(\s*[}\]])/g, '$1');
+  
+  // Fix unescaped quotes in string values (but be careful not to break properly escaped ones)
+  // This is a more conservative approach that only fixes obvious issues
+  sanitized = sanitized.replace(/"([^"]*?)\n([^"]*?)"/g, '"$1\\n$2"'); // Fix literal newlines in strings
+  sanitized = sanitized.replace(/"([^"]*?)\t([^"]*?)"/g, '"$1\\t$2"'); // Fix literal tabs in strings
+  
+  // Remove control characters that break JSON parsing
+  // eslint-disable-next-line no-control-regex
+  sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
   
   return sanitized;
 }
@@ -52,6 +40,7 @@ interface AIConfig {
   provider: AIProvider;
   endpoint: string;
   apiKey?: string;
+  geminiApiKey?: string;
   visionModel: string;
   storyModel: string;
 }
@@ -59,6 +48,7 @@ interface AIConfig {
 function getAIConfig(): AIConfig {
   let provider: AIProvider = 'mock';
   let openaiApiKey = '';
+  let geminiApiKey = '';
   let lmstudioUrl = 'http://localhost:1234';
   let lmstudioApiKey = '';
   let ollamaUrl = 'http://localhost:11434';
@@ -75,30 +65,54 @@ function getAIConfig(): AIConfig {
       
       provider = settings.provider || 'mock';
       openaiApiKey = settings.openaiApiKey || '';
+      geminiApiKey = settings.geminiApiKey || '';
       lmstudioUrl = settings.lmstudioUrl || 'http://localhost:1234';
       lmstudioApiKey = settings.lmstudioApiKey || '';
       ollamaUrl = settings.ollamaUrl || 'http://localhost:11434';
-      visionModel = settings.visionModel || 'gpt-4-vision-preview';
-      storyModel = settings.storyModel || 'gpt-4o';
+      
+      // Set appropriate default models based on provider
+      if (settings.provider === 'gemini') {
+        visionModel = settings.visionModel || 'gemini-1.5-pro';
+        storyModel = settings.storyModel || 'gemini-1.5-pro';
+      } else {
+        visionModel = settings.visionModel || 'gpt-4-vision-preview';
+        storyModel = settings.storyModel || 'gpt-4o';
+      }
     } else {
       console.log('No saved settings found, using environment variables');
       provider = (process.env.REACT_APP_AI_PROVIDER as AIProvider) || 'mock';
       openaiApiKey = process.env.REACT_APP_OPENAI_API_KEY || '';
+      geminiApiKey = process.env.REACT_APP_GEMINI_API_KEY || '';
       lmstudioUrl = process.env.REACT_APP_LMSTUDIO_URL || 'http://localhost:1234';
       lmstudioApiKey = process.env.REACT_APP_LMSTUDIO_API_KEY || '';
       ollamaUrl = process.env.REACT_APP_OLLAMA_URL || 'http://localhost:11434';
-      visionModel = process.env.REACT_APP_VISION_MODEL || 'gpt-4-vision-preview';
-      storyModel = process.env.REACT_APP_STORY_MODEL || 'gpt-4o';
+      
+      // Set appropriate default models based on provider
+      if (provider === 'gemini') {
+        visionModel = process.env.REACT_APP_VISION_MODEL || 'gemini-1.5-pro';
+        storyModel = process.env.REACT_APP_STORY_MODEL || 'gemini-1.5-pro';
+      } else {
+        visionModel = process.env.REACT_APP_VISION_MODEL || 'gpt-4-vision-preview';
+        storyModel = process.env.REACT_APP_STORY_MODEL || 'gpt-4o';
+      }
     }
   } catch (error) {
     console.error('Failed to parse saved settings, using environment variables:', error);
     provider = (process.env.REACT_APP_AI_PROVIDER as AIProvider) || 'mock';
     openaiApiKey = process.env.REACT_APP_OPENAI_API_KEY || '';
+    geminiApiKey = process.env.REACT_APP_GEMINI_API_KEY || '';
     lmstudioUrl = process.env.REACT_APP_LMSTUDIO_URL || 'http://localhost:1234';
     lmstudioApiKey = process.env.REACT_APP_LMSTUDIO_API_KEY || '';
     ollamaUrl = process.env.REACT_APP_OLLAMA_URL || 'http://localhost:11434';
-    visionModel = process.env.REACT_APP_VISION_MODEL || 'gpt-4-vision-preview';
-    storyModel = process.env.REACT_APP_STORY_MODEL || 'gpt-4o';
+    
+    // Set appropriate default models based on provider
+    if (provider === 'gemini') {
+      visionModel = process.env.REACT_APP_VISION_MODEL || 'gemini-1.5-pro';
+      storyModel = process.env.REACT_APP_STORY_MODEL || 'gemini-1.5-pro';
+    } else {
+      visionModel = process.env.REACT_APP_VISION_MODEL || 'gpt-4-vision-preview';
+      storyModel = process.env.REACT_APP_STORY_MODEL || 'gpt-4o';
+    }
   }
 
   console.log('Final AI config:', { provider, lmstudioUrl, ollamaUrl, visionModel, storyModel });
@@ -113,6 +127,15 @@ function getAIConfig(): AIConfig {
         storyModel: storyModel
       };
     
+    case 'gemini':
+        return {
+          provider: 'gemini',
+          endpoint: '', // Not used for Gemini
+          apiKey: geminiApiKey,
+          visionModel: visionModel,
+          storyModel: storyModel
+        };
+
     case 'lmstudio':
       return {
         provider: 'lmstudio',
@@ -169,38 +192,24 @@ function getStoryGenerationPrompt(visionAnalysis: any, isNSFW: boolean = false):
     ? `\n\nNSFW/MATURE CONTENT: You may include mature themes, adult content, and sensual elements in the DeviantArt story. Keep the Instagram caption appropriate for general audiences.`
     : `\n\nKeep all content appropriate for general audiences.`;
 
-  return `You are a creative writing assistant. Based on this detailed visual analysis of an image, create compelling creative content that directly relates to what is shown.
+  // Extract the main subject from objects array
+  const mainSubject = Array.isArray(visionAnalysis.objects) && visionAnalysis.objects.length > 0 
+    ? visionAnalysis.objects[0] 
+    : 'subject';
 
-WHAT IS IN THE IMAGE:
-${visionAnalysis.description || 'An artistic image'}
+  return `Image description:
+${visionAnalysis.description || 'A scene'}
 
-VISUAL DETAILS:
-- Setting/Environment: ${visionAnalysis.setting || 'artistic setting'}
-- Main Objects/Subjects: ${Array.isArray(visionAnalysis.objects) ? visionAnalysis.objects.join(', ') : 'various elements'}
-- Colors: ${Array.isArray(visionAnalysis.colors) ? visionAnalysis.colors.join(', ') : 'colorful palette'}
-- Style: ${visionAnalysis.style || 'artistic'}
-- Mood: ${visionAnalysis.mood || 'expressive'}
-- Notable Details: ${Array.isArray(visionAnalysis.details) ? visionAnalysis.details.join(', ') : 'artistic elements'}
+Write a story about what is described above. Use ONLY this description as the basis for your story.
 
-CRITICAL: You must respond with ONLY a valid JSON object. Do not include any other text, explanations, or formatting. Start your response with { and end with }.
-
-Your creative content MUST be directly inspired by and relevant to the actual image content described above. Build your story around what is actually shown in the image.
-
-Required JSON format:
+Format your response as JSON:
 {
-  "title": "A compelling title for DeviantArt that relates to the image content (max 100 characters)",
-  "story": "An extremely creative and detailed story description for DeviantArt (400-600 words). Base this story directly on what is shown in the image. Create an immersive narrative that brings THIS SPECIFIC IMAGE to life with rich descriptions, character development, world-building, emotional depth, and creative storytelling. Reference the actual subjects, setting, and visual elements from the image analysis.",
-  "instagramCaption": "An engaging Instagram caption that relates to the image content (max 150 characters with emojis)"
+  "title": "Title based on the description",
+  "story": "Story based on the description above",
+  "instagramCaption": "Caption based on the description"
 }
 
-Requirements:
-- The story MUST be directly related to what is actually in the image
-- Reference specific elements from the visual analysis
-- Keep the title under 100 characters
-- Keep the Instagram caption under 150 characters
-- Use proper JSON formatting with escaped quotes if needed${nsfwInstructions}
-
-Response format: JSON only, no other text.`;
+${nsfwInstructions}`;
 }
 
 function getLMStudioTextRequestBody(prompt: string, model: string) {
@@ -231,9 +240,15 @@ export async function analyzeImage(imageDataUrl: string, isNSFW: boolean = false
     return generateMockAnalysis(imageDataUrl);
   }
 
+  if (config.provider === 'gemini' && !config.apiKey) {
+    console.warn('Gemini API key not found. Using mock analysis.');
+    return generateMockAnalysis(imageDataUrl);
+  }
+
   try {
-    // Check if we should use dual-model workflow (different vision and story models)
-    const useDualModels = config.visionModel !== config.storyModel && config.provider === 'lmstudio';
+    // Check if we should use dual-model workflow 
+    // Use dual-model for LM Studio/Ollama to get better image analysis first, then story generation
+    const useDualModels = (config.provider === 'lmstudio' || config.provider === 'ollama');
     
     if (useDualModels) {
       console.log('Using dual-model workflow for LM Studio');
@@ -249,6 +264,23 @@ export async function analyzeImage(imageDataUrl: string, isNSFW: boolean = false
 }
 
 async function analyzeSingleModel(imageDataUrl: string, isNSFW: boolean, config: AIConfig): Promise<ImageAnalysis> {
+  if (config.provider === 'gemini') {
+    const prompt = getGeminiPrompt(isNSFW);
+    const base64Image = imageDataUrl.split(',')[1];
+    // Extract mime type from data URL
+    const mimeType = imageDataUrl.split(',')[0].split(':')[1].split(';')[0] || 'image/jpeg';
+    const result = await generateCaptionWithGemini(
+      config.apiKey!, 
+      config.visionModel,
+      base64Image,
+      prompt,
+      2000,
+      0.7,
+      mimeType
+    );
+    return parseAIResponse(result);
+  }
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json'
   };
@@ -301,14 +333,43 @@ async function analyzeSingleModel(imageDataUrl: string, isNSFW: boolean, config:
     throw new Error('No content in API response');
   }
 
+  console.log(`Raw ${config.provider} AI response:`, content);
+  
   try {
     const analysis = parseAIResponse(content);
+    console.log('Successfully parsed AI response:', analysis);
     return analysis;
   } catch (parseError) {
-    console.error('Failed to parse AI response:', parseError);
-    console.log('Raw AI response:', content);
+    console.error(`Failed to parse ${config.provider} AI response:`, parseError);
+    console.log('Raw AI response that failed to parse:', content);
+    console.log('Response length:', content.length);
+    console.log('Response preview (first 500 chars):', content.substring(0, 500));
+    console.log('Response preview (last 500 chars):', content.substring(Math.max(0, content.length - 500)));
     return generateMockAnalysis(imageDataUrl);
   }
+}
+
+function getGeminiPrompt(isNSFW: boolean = false): string {
+  const nsfwInstructions = isNSFW 
+    ? `\n\nNSFW/MATURE CONTENT: You may include mature themes, adult content, and sensual elements in the DeviantArt story. Keep the Instagram caption appropriate for general audiences.`
+    : `\n\nKeep all content appropriate for general audiences.`;
+
+  return `CAREFULLY EXAMINE this image and provide a JSON response with the following structure:
+{
+  "title": "A compelling title for DeviantArt (max 100 chars)",
+  "story": "An extremely creative and detailed story/description for DeviantArt (800-1000 words). IMPORTANT: Base your story directly on what you see in the image. Describe the actual subjects, objects, setting, lighting, composition, and visual elements present. Then expand this into an immersive narrative that brings these specific visual elements to life with rich descriptions, character development (if people/characters are visible), world-building around the actual setting shown, emotional depth, and creative storytelling. Include vivid sensory details about what you observe, dialogue if appropriate for the scene depicted, and paint a complete picture that captivates readers while staying true to the image content.",
+  "instagramCaption": "An engaging Instagram caption (max 150 chars)",
+  "objects": ["list", "of", "main", "objects", "or", "subjects"],
+  "colors": ["dominant", "color", "palette"],
+  "style": "artistic style (e.g., digital art, photography, abstract)",
+  "mood": "overall mood or emotion"
+}
+
+CRITICAL: Your story MUST be based on what you actually see in the image. Don't create generic content - analyze the specific visual elements, subjects, setting, colors, lighting, and composition, then build your narrative around these observed details.
+
+IMPORTANT: Keep hashtags SHORT and readable. Each hashtag should be 2-4 words maximum (e.g., #DigitalArt, #Photography, #ArtWork, #Creative). Avoid extremely long compound hashtags.
+
+Make the content engaging and suitable for social media sharing.${nsfwInstructions}`;
 }
 
 async function analyzeDualModel(imageDataUrl: string, isNSFW: boolean, config: AIConfig): Promise<ImageAnalysis> {
@@ -368,30 +429,42 @@ async function analyzeDualModel(imageDataUrl: string, isNSFW: boolean, config: A
     
     console.log('Attempting to parse vision JSON:', jsonString);
     
-    // Sanitize JSON string to handle control characters
-    const sanitizedJson = sanitizeJsonString(jsonString);
-    console.log('Sanitized vision JSON:', sanitizedJson);
-    
-    visionAnalysis = JSON.parse(sanitizedJson);
+    // Try parsing raw JSON first, then sanitize if needed
+    try {
+      visionAnalysis = JSON.parse(jsonString);
+    } catch (rawError) {
+      console.log('Raw JSON parse failed, trying sanitized version');
+      const sanitizedJson = sanitizeJsonString(jsonString);
+      console.log('Sanitized vision JSON:', sanitizedJson);
+      visionAnalysis = JSON.parse(sanitizedJson);
+    }
   } catch (error) {
     console.error('Failed to parse vision analysis:', error);
     console.log('Vision model raw response that failed to parse:', visionContent);
+    
+    // Try to extract at least the description from the raw response
+    const descriptionMatch = visionContent.match(/"description"\s*:\s*"([^"]+(?:\\.[^"]*)*?)"/i);
+    const extractedDescription = descriptionMatch ? descriptionMatch[1].replace(/\\"/g, '"') : 'An artistic image with creative visual elements';
+    
+    console.log('Extracted description from failed parse:', extractedDescription);
+    
     visionAnalysis = {
-      description: 'An artistic image with creative visual elements',
-      objects: ['art', 'image'],
+      description: extractedDescription,
+      objects: ['subject'],
       colors: ['colorful'],
-      style: 'digital art',
+      style: 'photography',
       mood: 'creative',
-      setting: 'artistic composition',
+      setting: 'setting',
       details: ['visual elements']
     };
   }
 
   // Step 2: Use story model to generate creative content based on vision analysis
-  console.log('Step 2: Generating story with story model:', config.storyModel);
+  // Use text-only request since we want the story model to rely on the vision analysis, not re-analyze the image
+  console.log('Step 2: Generating story with story model (text-only):', config.storyModel);
   const storyPrompt = getStoryGenerationPrompt(visionAnalysis, isNSFW);
   const storyBody = getLMStudioTextRequestBody(storyPrompt, config.storyModel);
-
+  
   const storyResponse = await fetch(config.endpoint, {
     method: 'POST',
     headers,
@@ -416,16 +489,18 @@ async function analyzeDualModel(imageDataUrl: string, isNSFW: boolean, config: A
     // Try multiple JSON extraction patterns
     let jsonString = null;
     
-    // Pattern 1: Complete JSON object (most common)
-    const fullJsonMatch = storyContent.match(/\{[\s\S]*\}/);
-    if (fullJsonMatch) {
-      jsonString = fullJsonMatch[0];
-    }
-    
-    // Pattern 2: JSON wrapped in code blocks
+    // Pattern 1: JSON wrapped in code blocks (most reliable)
     const codeBlockMatch = storyContent.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
     if (codeBlockMatch) {
       jsonString = codeBlockMatch[1];
+    }
+    
+    // Pattern 2: Complete JSON object
+    if (!jsonString) {
+      const fullJsonMatch = storyContent.match(/\{[\s\S]*\}/);
+      if (fullJsonMatch) {
+        jsonString = fullJsonMatch[0];
+      }
     }
     
     // Pattern 3: Try to clean up the string and parse directly
@@ -433,21 +508,26 @@ async function analyzeDualModel(imageDataUrl: string, isNSFW: boolean, config: A
       jsonString = storyContent.trim();
     }
     
-    console.log('Attempting to parse JSON:', jsonString);
+    console.log('Attempting to parse JSON:', jsonString?.substring(0, 200) + '...');
     
-    // Sanitize JSON string to handle control characters
-    const sanitizedJson = sanitizeJsonString(jsonString);
-    console.log('Sanitized JSON:', sanitizedJson);
-    
-    storyAnalysis = JSON.parse(sanitizedJson);
+    // Try parsing raw JSON first
+    try {
+      storyAnalysis = JSON.parse(jsonString);
+    } catch (firstError) {
+      console.log('Raw JSON parse failed, trying sanitized version');
+      // Sanitize JSON string to handle control characters
+      const sanitizedJson = sanitizeJsonString(jsonString);
+      console.log('Sanitized JSON (first 200 chars):', sanitizedJson?.substring(0, 200) + '...');
+      storyAnalysis = JSON.parse(sanitizedJson);
+    }
   } catch (error) {
     console.error('Failed to parse story analysis:', error);
     console.log('Story model raw response that failed to parse:', storyContent);
     
     // Try to extract content using regex patterns as fallback
-    const titleMatch = storyContent.match(/"title"\s*:\s*"([^"]+)"/);
-    const storyMatch = storyContent.match(/"story"\s*:\s*"([^"]+(?:\\.[^"]*)*?)"/);
-    const captionMatch = storyContent.match(/"instagramCaption"\s*:\s*"([^"]+)"/);
+    const titleMatch = storyContent.match(/"title"\s*:\s*"([^"\r\n]+)"/);
+    const storyMatch = storyContent.match(/"story"\s*:\s*"([\s\S]*?)"\s*(?=,|\})/);
+    const captionMatch = storyContent.match(/"instagramCaption"\s*:\s*"([^"\r\n]+)"/);
     
     storyAnalysis = {
       title: titleMatch ? titleMatch[1] : 'Creative Artwork',
@@ -498,22 +578,36 @@ function getLMStudioPrompt(isNSFW: boolean = false): string {
     ? `\n\nNSFW/MATURE CONTENT: You may include mature themes, adult content, and sensual elements in the DeviantArt story. Keep the Instagram caption appropriate for general audiences.`
     : `\n\nKeep all content appropriate for general audiences.`;
 
-  return `You are an expert art and social media content creator. CAREFULLY EXAMINE this image and create compelling content for DeviantArt and Instagram based on what you actually see.
+  return `You are an expert art and social media content creator. You MUST carefully examine this image and describe EXACTLY what you see before creating any creative content.
+
+**STEP 1: ANALYZE THE IMAGE**
+Before writing anything else, look at this image and identify:
+- What subjects/people are in the image and what they're doing
+- The setting/location/background
+- Objects, clothing, props visible
+- Colors, lighting, composition
+- Artistic style (photo, digital art, painting, etc.)
+- Mood/atmosphere
+
+**STEP 2: CREATE CONTENT BASED ON YOUR ANALYSIS**
+Only after analyzing the image, create compelling content that directly references what you observed.
 
 Respond with ONLY a valid JSON object in this exact format:
 {
-  "title": "A compelling title for DeviantArt (max 100 characters)",
-  "story": "An extremely creative and detailed story/description for DeviantArt (800-1000 words). CRITICAL: Base your story directly on the actual visual content of this image. First, carefully observe and describe what you see: the subjects, objects, setting, lighting, colors, composition, and any other visual elements present. Then expand this into an immersive narrative that brings these specific observed elements to life with rich descriptions, character development (if people/characters are visible), world-building around the actual setting shown, emotional depth, and creative storytelling. Include vivid sensory details about what you observe in the image, dialogue if appropriate for the scene depicted, and paint a complete picture that captivates readers while staying true to the actual image content.",
-  "instagramCaption": "An engaging Instagram caption (max 150 characters with emojis)",
-  "objects": ["list", "of", "main", "objects", "or", "subjects", "in", "image"],
-  "colors": ["dominant", "color", "names"],
-  "style": "artistic style description",
-  "mood": "overall mood or emotion"
+  "title": "A compelling title for DeviantArt that relates to what you see in the image (max 100 characters)",
+  "story": "An extremely creative and detailed story/description for DeviantArt (800-1000 words). MANDATORY: Start by describing what you actually see in this specific image - the subjects, their appearance, actions, setting, objects, colors, lighting. Then expand this observed reality into an immersive narrative. Every detail in your story must connect back to something visible in the image. Do not invent elements not present in the image.",
+  "instagramCaption": "An engaging Instagram caption that references the actual image content (max 150 characters with emojis)",
+  "objects": ["list", "of", "actual", "objects", "visible", "in", "the", "image"],
+  "colors": ["actual", "dominant", "colors", "you", "see"],
+  "style": "the actual artistic style you observe (photography, digital art, painting, etc.)",
+  "mood": "the actual mood/emotion you perceive from the image"
 }
 
-CRITICAL REQUIREMENT: Your story MUST be based on what you actually observe in the image. Do not generate generic creative content. Analyze the specific visual elements, subjects, setting, colors, lighting, and composition first, then build your narrative around these concrete observations.
-
-CRITICAL: For hashtags, use SHORT readable hashtags only. Each hashtag should be 2-4 words maximum (like #Art, #Photography, #Digital, #Creative, #Artwork). Never create extremely long compound hashtags.${nsfwInstructions}
+CRITICAL RULES:
+1. Base everything on what you actually see in THIS specific image
+2. Do not create generic or fictional content unrelated to the image
+3. Your story must reference specific visual elements you observe
+4. Every creative element should connect to something in the image${nsfwInstructions}
 
 Important: Respond with ONLY the JSON object, no other text.`;
 }
@@ -523,22 +617,36 @@ function getOllamaPrompt(isNSFW: boolean = false): string {
     ? `\n\nNSFW/MATURE CONTENT: You may include mature themes, adult content, and sensual elements in the DeviantArt story. Keep the Instagram caption appropriate for general audiences.`
     : `\n\nKeep all content appropriate for general audiences.`;
 
-  return `You are an expert art and social media content creator. CAREFULLY EXAMINE this image and create compelling content for DeviantArt and Instagram based on what you actually see.
+  return `You are an expert art and social media content creator. You MUST carefully examine this image and describe EXACTLY what you see before creating any creative content.
+
+**STEP 1: ANALYZE THE IMAGE**
+Before writing anything else, look at this image and identify:
+- What subjects/people are in the image and what they're doing
+- The setting/location/background
+- Objects, clothing, props visible
+- Colors, lighting, composition
+- Artistic style (photo, digital art, painting, etc.)
+- Mood/atmosphere
+
+**STEP 2: CREATE CONTENT BASED ON YOUR ANALYSIS**
+Only after analyzing the image, create compelling content that directly references what you observed.
 
 Respond with ONLY a valid JSON object in this exact format:
 {
-  "title": "A compelling title for DeviantArt (max 100 characters)",
-  "story": "An extremely creative and detailed story/description for DeviantArt (800-1000 words). CRITICAL: Base your story directly on the actual visual content of this image. First, carefully observe and describe what you see: the subjects, objects, setting, lighting, colors, composition, and any other visual elements present. Then expand this into an immersive narrative that brings these specific observed elements to life with rich descriptions, character development (if people/characters are visible), world-building around the actual setting shown, emotional depth, and creative storytelling. Include vivid sensory details about what you observe in the image, dialogue if appropriate for the scene depicted, and paint a complete picture that captivates readers while staying true to the actual image content.",
-  "instagramCaption": "An engaging Instagram caption (max 150 characters with emojis)",
-  "objects": ["list", "of", "main", "objects", "or", "subjects", "in", "image"],
-  "colors": ["dominant", "color", "names"],
-  "style": "artistic style description",
-  "mood": "overall mood or emotion"
+  "title": "A compelling title for DeviantArt that relates to what you see in the image (max 100 characters)",
+  "story": "An extremely creative and detailed story/description for DeviantArt (800-1000 words). MANDATORY: Start by describing what you actually see in this specific image - the subjects, their appearance, actions, setting, objects, colors, lighting. Then expand this observed reality into an immersive narrative. Every detail in your story must connect back to something visible in the image. Do not invent elements not present in the image.",
+  "instagramCaption": "An engaging Instagram caption that references the actual image content (max 150 characters with emojis)",
+  "objects": ["list", "of", "actual", "objects", "visible", "in", "the", "image"],
+  "colors": ["actual", "dominant", "colors", "you", "see"],
+  "style": "the actual artistic style you observe (photography, digital art, painting, etc.)",
+  "mood": "the actual mood/emotion you perceive from the image"
 }
 
-CRITICAL REQUIREMENT: Your story MUST be based on what you actually observe in the image. Do not generate generic creative content. Analyze the specific visual elements, subjects, setting, colors, lighting, and composition first, then build your narrative around these concrete observations.
-
-CRITICAL: For hashtags, use SHORT readable hashtags only. Each hashtag should be 2-4 words maximum (like #Art, #Photography, #Digital, #Creative, #Artwork). Never create extremely long compound hashtags.${nsfwInstructions}
+CRITICAL RULES:
+1. Base everything on what you actually see in THIS specific image
+2. Do not create generic or fictional content unrelated to the image
+3. Your story must reference specific visual elements you observe
+4. Every creative element should connect to something in the image${nsfwInstructions}
 
 Important: Respond with ONLY the JSON object, no other text.`;
 }
@@ -613,22 +721,92 @@ function getOllamaRequestBody(imageDataUrl: string, prompt: string, model: strin
 function parseAIResponse(content: string): ImageAnalysis {
   let cleanContent = content.trim();
   
-  const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
-  if (jsonMatch) {
-    cleanContent = jsonMatch[0];
+  // Try multiple JSON extraction patterns
+  let jsonString = null;
+  
+  // Pattern 1: Complete JSON object (most common)
+  const fullJsonMatch = cleanContent.match(/\{[\s\S]*\}/);
+  if (fullJsonMatch) {
+    jsonString = fullJsonMatch[0];
   }
   
-  const analysis = JSON.parse(cleanContent);
+  // Pattern 2: JSON wrapped in code blocks
+  const codeBlockMatch = cleanContent.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+  if (codeBlockMatch) {
+    jsonString = codeBlockMatch[1];
+  }
   
-  return {
-    title: analysis.title || "Untitled Artwork",
-    story: analysis.story || "A captivating artistic piece that showcases creativity and vision.",
-    instagramCaption: analysis.instagramCaption || "Sharing some creative inspiration ✨",
-    objects: Array.isArray(analysis.objects) ? analysis.objects : ["art", "creative"],
-    colors: Array.isArray(analysis.colors) ? analysis.colors : ["colorful"],
-    style: analysis.style || "digital art",
-    mood: analysis.mood || "inspiring"
-  };
+  // Pattern 3: Try to clean up the string and parse directly
+  if (!jsonString) {
+    jsonString = cleanContent;
+  }
+  
+  try {
+    console.log('Attempting to parse JSON:', jsonString);
+    
+    // Try parsing the raw JSON first (most common case)
+    let analysis;
+    try {
+      analysis = JSON.parse(jsonString);
+    } catch (firstError) {
+      const errorMessage = firstError instanceof Error ? firstError.message : 'Unknown error';
+      console.log('Raw JSON parse failed, trying sanitized version:', errorMessage);
+      
+      // Sanitize JSON string to handle control characters
+      const sanitizedJson = sanitizeJsonString(jsonString);
+      console.log('Sanitized JSON:', sanitizedJson);
+      
+      analysis = JSON.parse(sanitizedJson);
+    }
+    
+    return {
+      title: analysis.title || "Untitled Artwork",
+      story: analysis.story || "A captivating artistic piece that showcases creativity and vision.",
+      instagramCaption: analysis.instagramCaption || "Sharing some creative inspiration ✨",
+      objects: Array.isArray(analysis.objects) ? analysis.objects : ["art", "creative"],
+      colors: Array.isArray(analysis.colors) ? analysis.colors : ["colorful"],
+      style: analysis.style || "digital art",
+      mood: analysis.mood || "inspiring"
+    };
+  } catch (parseError) {
+    console.error('JSON parsing failed, trying fallback extraction:', parseError);
+    console.log('Raw content that failed to parse:', content);
+    
+    // Try to extract content using regex patterns as fallback
+    const titleMatch = content.match(/"title"\s*:\s*"([^"]+(?:\\.[^"]*)*?)"/i);
+    const storyMatch = content.match(/"story"\s*:\s*"([\s\S]*?)"/i);
+    const captionMatch = content.match(/"instagramCaption"\s*:\s*"([^"]+(?:\\.[^"]*)*?)"/i);
+    const objectsMatch = content.match(/"objects"\s*:\s*\[([^\]]+)\]/i);
+    const colorsMatch = content.match(/"colors"\s*:\s*\[([^\]]+)\]/i);
+    const styleMatch = content.match(/"style"\s*:\s*"([^"]+)"/i);
+    const moodMatch = content.match(/"mood"\s*:\s*"([^"]+)"/i);
+    
+    // Helper function to clean extracted strings
+    const cleanString = (str: string) => str?.replace(/\\"|\\\\/g, '"') || '';
+    
+    // Helper function to parse array strings
+    const parseArrayString = (arrayStr: string): string[] => {
+      if (!arrayStr) return [];
+      return arrayStr
+        .split(',')
+        .map(item => item.replace(/["'\s]/g, ''))
+        .filter(item => item.length > 0)
+        .slice(0, 5); // Limit to 5 items
+    };
+    
+    const fallbackAnalysis = {
+      title: titleMatch ? cleanString(titleMatch[1]) : 'Creative Artwork',
+      story: storyMatch ? cleanString(storyMatch[1]) : 'A beautiful and inspiring piece of art that captures the imagination.',
+      instagramCaption: captionMatch ? cleanString(captionMatch[1]) : 'Sharing some creative inspiration ✨',
+      objects: objectsMatch ? parseArrayString(objectsMatch[1]) : ['art', 'creative'],
+      colors: colorsMatch ? parseArrayString(colorsMatch[1]) : ['colorful'],
+      style: styleMatch ? cleanString(styleMatch[1]) : 'digital art',
+      mood: moodMatch ? cleanString(moodMatch[1]) : 'inspiring'
+    };
+    
+    console.log('Fallback analysis result:', fallbackAnalysis);
+    return fallbackAnalysis;
+  }
 }
 
 function generateMockAnalysis(imageDataUrl: string): ImageAnalysis {

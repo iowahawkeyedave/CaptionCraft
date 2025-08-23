@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './Settings.css';
 import { AIProvider } from '../services/aiService';
-import { fetchLMStudioModels, testLMStudioConnection, getDefaultVisionModels, LMStudioModel } from '../services/lmStudioService';
-import { fetchOllamaModels, testOllamaConnection, getDefaultOllamaVisionModels, OllamaModel } from '../services/ollamaService';
+import { fetchLMStudioModels, fetchAllLMStudioModels, testLMStudioConnection, getDefaultVisionModels, LMStudioModel } from '../services/lmStudioService';
+import { fetchOllamaModels, fetchAllOllamaModels, testOllamaConnection, getDefaultOllamaVisionModels, OllamaModel } from '../services/ollamaService';
+import { testGeminiConnection } from '../services/geminiService';
 
 interface SettingsProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface SettingsProps {
 interface LocalSettings {
   provider: AIProvider;
   openaiApiKey: string;
+  geminiApiKey: string;
   lmstudioUrl: string;
   lmstudioApiKey: string;
   ollamaUrl: string;
@@ -23,6 +25,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
   const [settings, setSettings] = useState<LocalSettings>({
     provider: 'mock',
     openaiApiKey: '',
+    geminiApiKey: '',
     lmstudioUrl: 'http://localhost:1234',
     lmstudioApiKey: '',
     ollamaUrl: 'http://localhost:11434',
@@ -30,8 +33,10 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
     storyModel: 'gpt-4o'
   });
 
+  const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [availableModels, setAvailableModels] = useState<LMStudioModel[] | OllamaModel[]>([]);
+  const [allAvailableModels, setAllAvailableModels] = useState<LMStudioModel[] | OllamaModel[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [modelError, setModelError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'connected' | 'disconnected'>('unknown');
@@ -50,12 +55,38 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
   }, []);
 
   const handleSettingChange = (key: keyof LocalSettings, value: string) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
+    setSettings(prev => {
+      const newSettings = { ...prev, [key]: value };
+      
+      // Auto-set appropriate model defaults when switching provider
+      if (key === 'provider') {
+        if (value === 'gemini') {
+          // Set Gemini model defaults if current models are not Gemini models
+          if (!prev.visionModel.startsWith('gemini')) {
+            newSettings.visionModel = 'gemini-1.5-pro';
+          }
+          if (!prev.storyModel.startsWith('gemini')) {
+            newSettings.storyModel = 'gemini-1.5-pro';
+          }
+        } else if (value === 'openai') {
+          // Set OpenAI model defaults if current models are not OpenAI models
+          if (!prev.visionModel.startsWith('gpt')) {
+            newSettings.visionModel = 'gpt-4-vision-preview';
+          }
+          if (!prev.storyModel.startsWith('gpt')) {
+            newSettings.storyModel = 'gpt-4o';
+          }
+        }
+      }
+      
+      return newSettings;
+    });
     setHasChanges(true);
     
-    if (key === 'lmstudioUrl' || key === 'ollamaUrl') {
+    if (key === 'lmstudioUrl' || key === 'ollamaUrl' || key === 'geminiApiKey' || key === 'provider') {
       setConnectionStatus('unknown');
       setAvailableModels([]);
+      setAllAvailableModels([]);
       setModelError(null);
       setConnectionError(null);
     }
@@ -64,6 +95,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
   const testConnection = useCallback(async () => {
     if (settings.provider === 'lmstudio' && !settings.lmstudioUrl) return;
     if (settings.provider === 'ollama' && !settings.ollamaUrl) return;
+    if (settings.provider === 'gemini' && !settings.geminiApiKey) return;
     
     setConnectionStatus('unknown');
     setConnectionError(null);
@@ -81,6 +113,11 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
         setConnectionError(result.error || 'Could not connect to Ollama server');
         setAvailableModels(getDefaultOllamaVisionModels());
       }
+    } else if (settings.provider === 'gemini') {
+      result = await testGeminiConnection(settings.geminiApiKey);
+      if (!result.connected) {
+        setConnectionError(result.error || 'Could not connect to Gemini');
+      }
     } else {
       return;
     }
@@ -90,9 +127,10 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
     if (result.connected) {
       setConnectionError(null);
     }
-  }, [settings.lmstudioUrl, settings.ollamaUrl, settings.provider]);
+  }, [settings.lmstudioUrl, settings.ollamaUrl, settings.geminiApiKey, settings.provider]);
 
   const loadAvailableModels = useCallback(async () => {
+    if (settings.provider === 'gemini') return;
     if (settings.provider === 'lmstudio' && !settings.lmstudioUrl) return;
     if (settings.provider === 'ollama' && !settings.ollamaUrl) return;
     if (settings.provider !== 'lmstudio' && settings.provider !== 'ollama') return;
@@ -101,19 +139,27 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
     setModelError(null);
     
     try {
-      let models;
+      let visionModels, allModels;
       if (settings.provider === 'lmstudio') {
-        models = await fetchLMStudioModels(settings.lmstudioUrl);
-        setAvailableModels(models.length > 0 ? models : getDefaultVisionModels());
+        // Load both vision models and all models
+        visionModels = await fetchLMStudioModels(settings.lmstudioUrl);
+        allModels = await fetchAllLMStudioModels(settings.lmstudioUrl);
         
-        if (models.length === 0) {
+        setAvailableModels(visionModels.length > 0 ? visionModels : getDefaultVisionModels());
+        setAllAvailableModels(allModels.length > 0 ? allModels : getDefaultVisionModels());
+        
+        if (visionModels.length === 0) {
           setModelError('No vision models found. Make sure you have a vision model loaded in LM Studio.');
         }
       } else if (settings.provider === 'ollama') {
-        models = await fetchOllamaModels(settings.ollamaUrl);
-        setAvailableModels(models.length > 0 ? models : getDefaultOllamaVisionModels());
+        // Load both vision models and all models
+        visionModels = await fetchOllamaModels(settings.ollamaUrl);
+        allModels = await fetchAllOllamaModels(settings.ollamaUrl);
         
-        if (models.length === 0) {
+        setAvailableModels(visionModels.length > 0 ? visionModels : getDefaultOllamaVisionModels());
+        setAllAvailableModels(allModels.length > 0 ? allModels : getDefaultOllamaVisionModels());
+        
+        if (visionModels.length === 0) {
           setModelError('No vision models found. Make sure you have a vision model installed in Ollama.');
         }
       }
@@ -126,8 +172,10 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
       
       if (settings.provider === 'lmstudio') {
         setAvailableModels(getDefaultVisionModels());
+        setAllAvailableModels(getDefaultVisionModels());
       } else {
         setAvailableModels(getDefaultOllamaVisionModels());
+        setAllAvailableModels(getDefaultOllamaVisionModels());
       }
       setConnectionStatus('disconnected');
     } finally {
@@ -136,11 +184,13 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
   }, [settings.lmstudioUrl, settings.ollamaUrl, settings.provider]);
 
   useEffect(() => {
-    if ((settings.provider === 'lmstudio' || settings.provider === 'ollama') && isOpen) {
+    if ((settings.provider === 'lmstudio' || settings.provider === 'ollama' || settings.provider === 'gemini') && isOpen) {
       testConnection();
-      loadAvailableModels();
+      if (settings.provider !== 'gemini') {
+        loadAvailableModels();
+      }
     }
-  }, [settings.provider, settings.lmstudioUrl, settings.ollamaUrl, isOpen, testConnection, loadAvailableModels]);
+  }, [settings.provider, settings.lmstudioUrl, settings.ollamaUrl, settings.geminiApiKey, isOpen, testConnection, loadAvailableModels]);
 
   const handleSave = () => {
     localStorage.setItem('ai-captioning-settings', JSON.stringify(settings));
@@ -161,6 +211,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
     const defaultSettings: LocalSettings = {
       provider: 'mock',
       openaiApiKey: '',
+      geminiApiKey: '',
       lmstudioUrl: 'http://localhost:1234',
       lmstudioApiKey: '',
       ollamaUrl: 'http://localhost:11434',
@@ -175,6 +226,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
     const mapping: Record<string, string> = {
       provider: 'REACT_APP_AI_PROVIDER',
       openaiApiKey: 'REACT_APP_OPENAI_API_KEY',
+      geminiApiKey: 'REACT_APP_GEMINI_API_KEY',
       lmstudioUrl: 'REACT_APP_LMSTUDIO_URL',
       lmstudioApiKey: 'REACT_APP_LMSTUDIO_API_KEY',
       ollamaUrl: 'REACT_APP_OLLAMA_URL',
@@ -204,12 +256,14 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
             >
               <option value="mock">Mock (Demo Mode)</option>
               <option value="openai">OpenAI</option>
+              <option value="gemini">Google Gemini</option>
               <option value="lmstudio">LM Studio (Local)</option>
               <option value="ollama">Ollama (Local)</option>
             </select>
             <small>
               {settings.provider === 'mock' && 'Uses realistic demo data for testing'}
               {settings.provider === 'openai' && 'Uses OpenAI\'s GPT-4 Vision API'}
+              {settings.provider === 'gemini' && 'Uses Google\'s Gemini API'}
               {settings.provider === 'lmstudio' && 'Uses your local LM Studio server'}
               {settings.provider === 'ollama' && 'Uses your local Ollama server'}
             </small>
@@ -227,6 +281,43 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
               />
               <small>
                 Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI Platform</a>
+              </small>
+            </div>
+          )}
+
+          {settings.provider === 'gemini' && (
+            <div className="setting-group">
+              <label htmlFor="geminiApiKey">Google Gemini API Key</label>
+              <div className="api-key-input-group">
+                <input
+                  type={showGeminiKey ? 'text' : 'password'}
+                  id="geminiApiKey"
+                  value={settings.geminiApiKey}
+                  onChange={(e) => handleSettingChange('geminiApiKey', e.target.value)}
+                  placeholder="Enter your Gemini API key"
+                />
+                <button 
+                  type="button" 
+                  className="toggle-visibility-button"
+                  onClick={() => setShowGeminiKey(!showGeminiKey)}
+                  title={showGeminiKey ? 'Hide key' : 'Show key'}
+                >
+                  {showGeminiKey ? '👁️' : '🙈'}
+                </button>
+              </div>
+              <small>
+                Get your API key from <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>
+                {connectionStatus === 'connected' && <span className="status-success"> • Connected</span>}
+                {connectionStatus === 'disconnected' && (
+                  <>
+                    <span className="status-error"> • Disconnected</span>
+                    {connectionError && (
+                      <div className="connection-error-details">
+                        <strong>Error:</strong> {connectionError}
+                      </div>
+                    )}
+                  </>
+                )}
               </small>
             </div>
           )}
@@ -325,7 +416,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {settings.provider === 'openai' && (
+          {(settings.provider === 'openai' || settings.provider === 'gemini') && (
             <>
               <div className="setting-group">
                 <label htmlFor="visionModel">Vision Model</label>
@@ -334,9 +425,9 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                   id="visionModel"
                   value={settings.visionModel}
                   onChange={(e) => handleSettingChange('visionModel', e.target.value)}
-                  placeholder="gpt-4-vision-preview"
+                  placeholder={settings.provider === 'gemini' ? 'gemini-1.5-pro' : 'gpt-4-vision-preview'}
                 />
-                <small>OpenAI vision model for image analysis (e.g., gpt-4-vision-preview, gpt-4o)</small>
+                <small>Model for image analysis (e.g., {settings.provider === 'gemini' ? 'gemini-1.5-pro, gemini-1.5-flash' : 'gpt-4-vision-preview, gpt-4o'})</small>
               </div>
 
               <div className="setting-group">
@@ -346,9 +437,9 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                   id="storyModel"
                   value={settings.storyModel}
                   onChange={(e) => handleSettingChange('storyModel', e.target.value)}
-                  placeholder="gpt-4o"
+                  placeholder={settings.provider === 'gemini' ? 'gemini-1.5-pro' : 'gpt-4o'}
                 />
-                <small>OpenAI text model for creative story generation (e.g., gpt-4o, gpt-4-turbo, gpt-3.5-turbo)</small>
+                <small>Text model for creative story generation (e.g., {settings.provider === 'gemini' ? 'gemini-1.5-pro, gemini-1.5-flash' : 'gpt-4o, gpt-4-turbo, gpt-3.5-turbo'})</small>
               </div>
             </>
           )}
@@ -415,17 +506,58 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
 
               <div className="setting-group">
                 <label htmlFor="storyModel">Story Model</label>
-                <div className="model-input-group">
-                  <input
-                    type="text"
-                    id="storyModel"
-                    value={settings.storyModel}
-                    onChange={(e) => handleSettingChange('storyModel', e.target.value)}
-                    placeholder={settings.provider === 'lmstudio' ? 'llama-3.1-8b' : 'llama3.1:latest'}
-                  />
-                </div>
+                {allAvailableModels.length > 0 ? (
+                  <div className="model-selection-group">
+                    <select
+                      id="storyModel"
+                      value={settings.storyModel}
+                      onChange={(e) => handleSettingChange('storyModel', e.target.value)}
+                      disabled={isLoadingModels}
+                    >
+                      {allAvailableModels.map((model) => (
+                        <option key={'id' in model ? model.id : model.name} value={'id' in model ? model.id : model.name}>
+                          {'id' in model ? model.id : model.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button 
+                      type="button" 
+                      className="refresh-models-button"
+                      onClick={loadAvailableModels}
+                      disabled={isLoadingModels || (settings.provider === 'lmstudio' && !settings.lmstudioUrl) || (settings.provider === 'ollama' && !settings.ollamaUrl)}
+                      title="Refresh available models"
+                    >
+                      {isLoadingModels ? '⟳' : '🔄'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="model-input-group">
+                    <input
+                      type="text"
+                      id="storyModel"
+                      value={settings.storyModel}
+                      onChange={(e) => handleSettingChange('storyModel', e.target.value)}
+                      placeholder={settings.provider === 'lmstudio' ? 'llama-3.1-8b' : 'llama3.1:latest'}
+                    />
+                    <button 
+                      type="button" 
+                      className="refresh-models-button"
+                      onClick={loadAvailableModels}
+                      disabled={isLoadingModels || (settings.provider === 'lmstudio' && !settings.lmstudioUrl) || (settings.provider === 'ollama' && !settings.ollamaUrl)}
+                      title="Try to detect models automatically"
+                    >
+                      {isLoadingModels ? '⟳' : '🔍'}
+                    </button>
+                  </div>
+                )}
                 <small>
-                  Text model for creative story generation (can be any model available on your {settings.provider === 'lmstudio' ? 'LM Studio' : 'Ollama'} server)
+                  {isLoadingModels && 'Loading available models...'}
+                  {!isLoadingModels && !modelError && connectionStatus === 'connected' && allAvailableModels.length > 0 && 
+                    `Found ${allAvailableModels.length} model${allAvailableModels.length !== 1 ? 's' : ''}`}
+                  {!modelError && !isLoadingModels && allAvailableModels.length === 0 && connectionStatus === 'connected' && 
+                    'No models detected - you can manually enter the model name above'}
+                  {!modelError && !isLoadingModels && allAvailableModels.length === 0 && connectionStatus === 'disconnected' && 
+                    `Connection failed - check ${settings.provider === 'lmstudio' ? 'CORS settings' : 'CORS flag'} or manually enter model name`}
                 </small>
               </div>
             </>
@@ -433,6 +565,17 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
 
           <div className="setup-guide">
             <h3>Setup Guide</h3>
+            {settings.provider === 'gemini' && (
+              <div className="guide-content">
+                <h4>Google Gemini Setup:</h4>
+                <ol>
+                  <li>Go to <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a></li>
+                  <li>Create a new API key</li>
+                  <li>Enter your API key above and save settings</li>
+                </ol>
+                <p><strong>Note:</strong> Gemini API usage may be subject to charges.</p>
+              </div>
+            )}
             {settings.provider === 'lmstudio' && (
               <div className="guide-content">
                 <h4>LM Studio Setup:</h4>

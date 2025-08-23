@@ -17,7 +17,7 @@ export interface OllamaModelsResponse {
   models: OllamaModel[];
 }
 
-export async function fetchOllamaModels(serverUrl: string): Promise<OllamaModel[]> {
+export async function fetchAllOllamaModels(serverUrl: string): Promise<OllamaModel[]> {
   try {
     const cleanUrl = serverUrl.endsWith('/') ? serverUrl.slice(0, -1) : serverUrl;
     const response = await fetch(`${cleanUrl}/api/tags`, {
@@ -37,8 +37,21 @@ export async function fetchOllamaModels(serverUrl: string): Promise<OllamaModel[
       throw new Error('Invalid response format from Ollama');
     }
 
+    console.log('All available Ollama models:', data.models.map(m => m.name));
+    
+    return data.models;
+  } catch (error) {
+    console.error('Error fetching Ollama models:', error);
+    throw error;
+  }
+}
+
+export async function fetchOllamaModels(serverUrl: string): Promise<OllamaModel[]> {
+  try {
+    const allModels = await fetchAllOllamaModels(serverUrl);
+
     // Filter for vision models
-    const visionModels = data.models.filter(model => {
+    const visionModels = allModels.filter(model => {
       const modelName = model.name.toLowerCase();
       return modelName.includes('llava') || 
              modelName.includes('vision') || 
@@ -52,7 +65,6 @@ export async function fetchOllamaModels(serverUrl: string): Promise<OllamaModel[
              modelName.includes('cogvlm');
     });
 
-    console.log('All available Ollama models:', data.models.map(m => m.name));
     console.log('Vision models found:', visionModels.map(m => m.name));
     
     return visionModels;

@@ -10,7 +10,7 @@ export interface LMStudioModelsResponse {
   data: LMStudioModel[];
 }
 
-export async function fetchLMStudioModels(serverUrl: string): Promise<LMStudioModel[]> {
+export async function fetchAllLMStudioModels(serverUrl: string): Promise<LMStudioModel[]> {
   try {
     const cleanUrl = serverUrl.endsWith('/') ? serverUrl.slice(0, -1) : serverUrl;
     const response = await fetch(`${cleanUrl}/v1/models`, {
@@ -30,7 +30,20 @@ export async function fetchLMStudioModels(serverUrl: string): Promise<LMStudioMo
       throw new Error('Invalid response format from LM Studio');
     }
 
-    const visionModels = data.data.filter(model => {
+    console.log('All available models:', data.data.map(m => m.id));
+    
+    return data.data;
+  } catch (error) {
+    console.error('Error fetching LM Studio models:', error);
+    throw error;
+  }
+}
+
+export async function fetchLMStudioModels(serverUrl: string): Promise<LMStudioModel[]> {
+  try {
+    const allModels = await fetchAllLMStudioModels(serverUrl);
+
+    const visionModels = allModels.filter(model => {
       const modelName = model.id.toLowerCase();
       return modelName.includes('llava') || 
              modelName.includes('vision') || 
@@ -44,7 +57,6 @@ export async function fetchLMStudioModels(serverUrl: string): Promise<LMStudioMo
              modelName.includes('cogvlm');
     });
 
-    console.log('All available models:', data.data.map(m => m.id));
     console.log('Vision models found:', visionModels.map(m => m.id));
     
     return visionModels;
